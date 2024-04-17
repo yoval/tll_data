@@ -321,6 +321,21 @@ GROUP BY 门店名称, 平台,月份
 | stat_shop_name                   | VARCHAR | 门店统计名称                                           |
 | send_whse                        | VARCHAR | 仓库                                                   |
 
+## 需求示例
+
+### 拉取单店各月营业额
+
+拉取`TLL02973`各月的流水金额、实收金额。
+
+```mysql
+SELECT LEFT(business_date, 6) AS 月份, stat_shop_name AS 门店名称, SUM(total_amount) AS 流水金额,sum(pay_amount) as 实收金额
+FROM ads_dbs_trade_shop_di
+WHERE stat_shop_id = 'TLL02973'
+GROUP BY 门店名称,月份
+```
+
+
+
 # 美团收银系统
 
 当前收银系统为美团管家，https://pos.meituan.com/  。
@@ -394,5 +409,11 @@ GROUP BY 门店名称, 平台,月份
 - （必选）菜品映射表
 
   识别的是微协同→报表中心→报表分析，门店栏的“菜品名称对照登记查询”。该表由线上部门维护。
+
+  
+
+# 其它
+
+- [甜啦啦蚌埠地区直营店分布](other\tll_zhiyin.html)
 
   
