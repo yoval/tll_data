@@ -110,7 +110,7 @@ SELECT VERSION();
 例：
 
 ```mysql
-SELECT LEFT(business_date, 6) AS 月份, stat_shop_name AS 门店名称, SUM(report_amount) AS 报货金额
+SELECT LEFT(business_date, 6) AS 月份, stat_shop_name AS 门店名称, SUM(report_amount)/0.8 AS 报货金额
 FROM ads_dbs_report_food_di
 WHERE stat_shop_id = 'TLL03855'
 GROUP BY 门店名称, 月份
