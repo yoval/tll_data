@@ -1,3 +1,4 @@
-* 选项
+* 其它
   * [Main](/)
-  * [文档](https://doc.fuwenyue.com/)
+  * [个人文档](https://doc.fuwenyue.com/)
+  * [个人博客](https://bizha.top/)
