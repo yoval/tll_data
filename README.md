@@ -480,12 +480,14 @@ GROUP BY
 ### 查询柠檬香橙报货及当月流水
 
 ```mysql
+-- 查询每个门店的上次橙子报货时间、上次柠檬报货时间以及2024年4月的流水金额
 SELECT
   t1.门店编号,
   t1.上次橙子报货时间,
   t1.上次柠檬报货时间,
   t2.流水金额
 FROM
+  -- 子查询1：获取每个门店的上次橙子报货时间和上次柠檬报货时间
   (SELECT
     stat_shop_id AS 门店编号,
     MAX(CASE WHEN orange_report_cnt > 0 THEN business_date END) AS 上次橙子报货时间,
@@ -495,6 +497,7 @@ FROM
   GROUP BY
     stat_shop_id) AS t1
 JOIN
+  -- 子查询2：获取每个门店2024年4月的流水金额
   (SELECT
     stat_shop_id AS 门店编号,
     LEFT(business_date, 6) AS 月份,
@@ -509,7 +512,7 @@ ON
   t1.门店编号 = t2.门店编号;
 ```
 
-运营结果
+运行结果
 
 | 门店编号 | 上次橙子报货时间 | 上次柠檬报货时间 | 流水金额 |
 | -------- | ---------------- | ---------------- | -------- |
@@ -522,6 +525,103 @@ ON
 | TLL05088 | 20240415         | 20240415         | 2590.4   |
 | TLL05072 | 20240402         | 20240402         | 4635.9   |
 
+
+
+### 查询柠檬橙子的报货周期
+
+- 注：当前仅有柠檬橙子权限，无其它产品权限。
+
+```mysql
+WITH lemon_table AS (
+  SELECT
+    t1.stat_shop_id,
+    t1.lemon_report_cnt,
+    t1.business_date AS last_lemon_report_day
+  FROM
+    ads_dbs_report_food_di t1
+    JOIN (
+      SELECT
+        stat_shop_id,
+        MAX(business_date) AS business_date
+      FROM
+        ads_dbs_report_food_di
+      WHERE
+        lemon_report_cnt > 0
+      GROUP BY
+        stat_shop_id
+    ) t2 ON t1.stat_shop_id = t2.stat_shop_id
+    AND t1.business_date = t2.business_date
+  WHERE
+    t1.lemon_report_cnt > 0
+),
+orange_table AS (
+  SELECT
+    t1.stat_shop_id,
+    t1.orange_report_cnt,
+    t1.business_date AS last_orange_report_day
+  FROM
+    ads_dbs_report_food_di t1
+    JOIN (
+      SELECT
+        stat_shop_id,
+        MAX(business_date) AS business_date
+      FROM
+        ads_dbs_report_food_di
+      WHERE
+        orange_report_cnt > 0
+      GROUP BY
+        stat_shop_id
+    ) t2 ON t1.stat_shop_id = t2.stat_shop_id
+    AND t1.business_date = t2.business_date
+  WHERE
+    t1.orange_report_cnt > 0
+)
+SELECT
+  -- 门店ID
+  l.stat_shop_id as 门店编号,
+  -- 上次柠檬报货时间
+  l.last_lemon_report_day as 上次柠檬报货时间,
+  -- 上次柠檬报货数量
+  l.lemon_report_cnt as 上次柠檬报货数量,
+  -- 上次橙子报货时间
+  o.last_orange_report_day as 上次橙子报货时间,
+  -- 上次橙子报货数量
+  o.orange_report_cnt as 上次橙子报货数量,
+  DATEDIFF(CURDATE(), l.last_lemon_report_day) AS 上次柠檬报货距今,
+  CASE
+    WHEN DATEDIFF(CURDATE(), l.last_lemon_report_day) < 30 THEN '30日内有报货'
+    WHEN DATEDIFF(CURDATE(), l.last_lemon_report_day) < 60 THEN '60日内有报货'
+    WHEN DATEDIFF(CURDATE(), l.last_lemon_report_day) < 90 THEN '90日内有报货'
+    ELSE '90日内无报货'
+  END AS 柠檬报货周期,
+  DATEDIFF(CURDATE(), o.last_orange_report_day) AS 上次橙子报货距今,
+  CASE
+    WHEN DATEDIFF(CURDATE(), o.last_orange_report_day) < 30 THEN '30日内有报货'
+    WHEN DATEDIFF(CURDATE(), o.last_orange_report_day) < 60 THEN '60日内有报货'
+    WHEN DATEDIFF(CURDATE(), o.last_orange_report_day) < 90 THEN '90日内有报货'
+    ELSE '90日内无报货'
+  END AS 橙子报货周期
+FROM
+  lemon_table l
+  JOIN orange_table o ON l.stat_shop_id = o.stat_shop_id;
+```
+
+
+
+运行结果
+
+| 门店编号 | 上次柠檬报货时间 | 上次柠檬报货数量 | 上次橙子报货时间 | 上次橙子报货数量 | 上次柠檬报货距今 | 柠檬报货周期 | 上次橙子报货距今 | 橙子报货周期 |
+| -------- | ---------------- | ---------------- | ---------------- | ---------------- | ---------------- | ------------ | ---------------- | ------------ |
+| TLL04437 | 20230315         | 3                | 20230315         | 2                | 406              | 90日内无报货 | 406              | 90日内无报货 |
+| TLL04234 | 20230321         | 2                | 20230321         | 2                | 400              | 90日内无报货 | 400              | 90日内无报货 |
+| TLL03600 | 20230407         | 1                | 20230424         | 1                | 383              | 90日内无报货 | 366              | 90日内无报货 |
+| TLL03956 | 20230605         | 1                | 20230605         | 1                | 324              | 90日内无报货 | 324              | 90日内无报货 |
+| TLL03827 | 20230626         | 1                | 20230626         | 1                | 303              | 90日内无报货 | 303              | 90日内无报货 |
+| TLL04940 | 20230804         | 2                | 20230804         | 2                | 264              | 90日内无报货 | 264              | 90日内无报货 |
+| TLL03673 | 20230804         | 2                | 20230710         | 3                | 264              | 90日内无报货 | 289              | 90日内无报货 |
+| TLL04600 | 20230807         | 3                | 20230807         | 3                | 261              | 90日内无报货 | 261              | 90日内无报货 |
+| TLL01918 | 20230807         | 3                | 20230807         | 2                | 261              | 90日内无报货 | 261              | 90日内无报货 |
+| TLL01039 | 20230807         | 4                | 20230712         | 4                | 261              | 90日内无报货 | 287              | 90日内无报货 |
 
 
 # 美团收银系统
@@ -601,6 +701,14 @@ ON
 ## 同环比期计算
 
 通过本期，计算同比期、环比期时段。注：**只可计算日期维度。**
+
+# EXCEL
+
+## WPS智能条件格式
+
+`$E$2:$E$28，数值最小的5单元格个字体标红`
+
+
 
 # 其它
 
