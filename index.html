@@ -7,19 +7,33 @@
   <meta name="description" content="Description">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+ <style>
+    .footer-container {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      text-align: center;
+      padding: 10px 0;
+      background-color: #fff;
+      border-top: 1px solid #ddd;
+    }
+  </style>
 </head>
 <body>
-  <div id="app"></div><script>
-  window.$docsify = {
-    name: 'DATA DOCUMENT',
-    loadNavbar: true
-  }
-</script>
+  <div id="app"></div>
+ <script>
+    window.$docsify = {
+      name: 'DATA DOCUMENT',
+      loadNavbar: true
+    }
+  </script>
  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
   <!-- Docsify v4 -->
  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
- <footer style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
-    &copy; 2024 Fuwenyue. All rights reserved.
-  </footer>
+  <div class="footer-container">
+   <footer>
+      &copy; 2024 Fuwenyue. All rights reserved.
+    </footer>
+  </div>
 </body>
 </html>
