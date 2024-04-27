@@ -135,10 +135,17 @@ SELECT VERSION();
 例：
 
 ```mysql
-SELECT LEFT(business_date, 6) AS 月份, stat_shop_name AS 门店名称, SUM(report_amount)/0.8 AS 报货金额
-FROM ads_dbs_report_food_di
-WHERE stat_shop_id = 'TLL03855'
-GROUP BY 门店名称, 月份
+SELECT
+    LEFT(business_date, 6) AS 月份,
+    stat_shop_name AS 门店名称,
+    SUM(report_amount) / 0.8 AS 报货金额
+FROM
+    ads_dbs_report_food_di
+WHERE
+    stat_shop_id = 'TLL03855'
+GROUP BY
+    门店名称,
+    月份
 ```
 
 查询门店TLL03855各月报货信息，表`ads_dbs_report_food_di`包含字段如下：
@@ -177,10 +184,19 @@ GROUP BY 门店名称, 月份
 主要用于查询单店单日各渠道销售情况，如：
 
 ```mysql
-SELECT LEFT(business_date, 6) AS 月份, stat_shop_name AS 门店名称,platform as 平台, SUM(total_amount) AS 流水金额
-FROM ads_dbs_trade_shop_di
-WHERE stat_shop_id = 'TLL03855'
-GROUP BY 门店名称, 平台,月份
+SELECT
+    LEFT(business_date, 6) AS 月份,
+    stat_shop_name AS 门店名称,
+    platform AS 平台,
+    SUM(total_amount) AS 流水金额
+FROM
+    ads_dbs_trade_shop_di
+WHERE
+    stat_shop_id = 'TLL03855'
+GROUP BY
+    门店名称,
+    平台,
+    月份
 ```
 
 查询门店TLL03855各月各平台的销售情况，表`ads_dbs_trade_shop_di`包含字段如下：
@@ -263,10 +279,19 @@ GROUP BY 门店名称, 平台,月份
 主要用于查询单店单日单品销售情况，如：
 
 ```mysql
-SELECT LEFT(business_date, 6) AS 月份, stat_shop_name AS 门店名称,platform as 平台, SUM(total_amount) AS 流水金额
-FROM ads_dbs_trade_food_di
-WHERE stat_shop_id = 'TLL03855'
-GROUP BY 门店名称, 平台,月份
+SELECT
+    LEFT(business_date, 6) AS 月份,
+    stat_shop_name AS 门店名称,
+    platform AS 平台,
+    SUM(total_amount) AS 流水金额
+FROM
+    ads_dbs_trade_food_di
+WHERE
+    stat_shop_id = 'TLL03855'
+GROUP BY
+    门店名称,
+    平台,
+    月份
 ```
 
 查询门店TLL03855各月各平台的销售情况，表`ads_dbs_trade_shop_di`包含字段如下：
@@ -384,10 +409,18 @@ GROUP BY 门店名称, 平台,月份
 拉取`TLL02973`各月的流水金额、实收金额。
 
 ```mysql
-SELECT LEFT(business_date, 6) AS 月份, stat_shop_name AS 门店名称, SUM(total_amount) AS 流水金额,sum(pay_amount) as 实收金额
-FROM ads_dbs_trade_shop_di
-WHERE stat_shop_id = 'TLL02973'
-GROUP BY 门店名称,月份
+SELECT
+    LEFT(business_date, 6) AS 月份,
+    stat_shop_name AS 门店名称,
+    SUM(total_amount) AS 流水金额,
+    SUM(pay_amount) AS 实收金额
+FROM
+    ads_dbs_trade_shop_di
+WHERE
+    stat_shop_id = 'TLL02973'
+GROUP BY
+    门店名称,
+    月份
 ```
 
 运行结果
