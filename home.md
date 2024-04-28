@@ -430,6 +430,7 @@ GROUP BY
 拉取`TLL02973`各月的流水金额、实收金额。
 
 ```mysql
+-- 修改门店编号即可
 SELECT
     LEFT(business_date, 6) AS 月份,
     stat_shop_name AS 门店名称,
@@ -465,64 +466,174 @@ GROUP BY
 | 202403 | 正大鞋城正门东侧门市 | 59744.75    | 50256.5125  |
 | 202404 | 正大鞋城正门东侧门市 | 36446.125   | 31811.525   |
 
-### 拉取各店各月销售、报货数据
+### 拉取单店时间段内的营业额、报货金额
 
 ```mysql
+-- 需修改门店编号、开始日期、结束日期
+WITH variables AS (
+    SELECT 'TLL06486' AS shop_id, 20240101 AS start_date, 20240426 AS end_date
+),
+combined AS (
+    SELECT
+        stat_shop_id,
+        report_amount,
+        NULL AS total_amount,
+        'ads_dbs_report_food_di' AS source
+    FROM
+        ads_dbs_report_food_di
+    JOIN
+        variables
+    ON
+        ads_dbs_report_food_di.stat_shop_id = variables.shop_id
+        AND ads_dbs_report_food_di.business_date BETWEEN variables.start_date AND variables.end_date
+    UNION ALL
+    SELECT
+        stat_shop_id,
+        NULL,
+        total_amount,
+        'ads_dbs_trade_shop_di' AS source
+    FROM
+        ads_dbs_trade_shop_di
+    JOIN
+        variables
+    ON
+        ads_dbs_trade_shop_di.stat_shop_id = variables.shop_id
+        AND ads_dbs_trade_shop_di.business_date BETWEEN variables.start_date AND variables.end_date
+)
 SELECT
     stat_shop_id AS 门店编号,
     SUM(CASE WHEN source = 'ads_dbs_report_food_di' THEN report_amount / 0.8 ELSE 0 END) AS 报货金额,
     SUM(CASE WHEN source = 'ads_dbs_trade_shop_di' THEN total_amount ELSE 0 END) AS 流水金额
 FROM
-    (
-        SELECT
-            stat_shop_id,
-            report_amount,
-            NULL AS total_amount,
-            'ads_dbs_report_food_di' AS source
-        FROM
-            ads_dbs_report_food_di
-        WHERE
-            stat_shop_id = 'TLL06486'
-            AND business_date BETWEEN 20240101 AND 20240426
-        UNION ALL
-        SELECT
-            stat_shop_id,
-            NULL,
-            total_amount,
-            'ads_dbs_trade_shop_di' AS source
-        FROM
-            ads_dbs_trade_shop_di
-        WHERE
-            stat_shop_id = 'TLL06486'
-            AND business_date BETWEEN 20240101 AND 20240426
-    ) AS combined
+    combined
 GROUP BY
     门店编号;
+
 ```
-
-
 
 运行结果
 
-| 月份   | 门店编号 | 流水金额 | 报货金额 |
-| ------ | -------- | -------- | -------- |
-| 202311 | TLL00001 | 2166     | 1636     |
-| 202311 | TLL00004 | 1868     | 583      |
-| 202311 | TLL00006 | 6743     | 4108     |
-| 202311 | TLL00007 | 1031     | 2658     |
-| 202311 | TLL00008 | 2200     | 1390     |
-| 202311 | TLL00012 | 1561     | 1478     |
-| 202311 | TLL00013 | 5097     | 2671     |
-| 202311 | TLL00014 | 4760     | 4494     |
-| 202311 | TLL00022 | 680      | 1177     |
-| 202311 | TLL00023 | 8        | 954      |
-| 202311 | TLL00024 | 2099     | 2965     |
+| 门店编号 | 报货金额 | 流水金额  |
+| -------- | -------- | --------- |
+| TLL06486 | 433982.7 | 451846.52 |
+
+### 拉取各店时间段内的营业额、报货金额
+
+```mysql
+WITH combined AS (
+    SELECT
+        stat_shop_id,
+        report_amount,
+        NULL AS total_amount,
+        'ads_dbs_report_food_di' AS source
+    FROM
+        ads_dbs_report_food_di
+    WHERE
+        business_date BETWEEN 20240101 AND 20240426
+    UNION ALL
+    SELECT
+        stat_shop_id,
+        NULL,
+        total_amount,
+        'ads_dbs_trade_shop_di' AS source
+    FROM
+        ads_dbs_trade_shop_di
+    WHERE
+        business_date BETWEEN 20240101 AND 20240426
+)
+SELECT
+    stat_shop_id AS 门店编号,
+    SUM(CASE WHEN source = 'ads_dbs_report_food_di' THEN report_amount / 0.8 ELSE 0 END) AS 报货金额,
+    SUM(CASE WHEN source = 'ads_dbs_trade_shop_di' THEN total_amount ELSE 0 END) AS 流水金额
+FROM
+    combined
+GROUP BY
+    门店编号;
+
+```
+
+运行结果
+
+| 门店编号 | 报货金额 | 流水金额  |
+| -------- | -------- | --------- |
+| TLL06295 | 44574    | 229111.2  |
+| TLL05978 | 41780    | 59729.9   |
+| TLL05518 | 37642    | 52091     |
+| TLL05038 | 34422    | 74115     |
+| TLL04418 | 244644   | 497057.99 |
+| TLL03769 | 118506   | 197721    |
+| TLL02558 | 86306.5  | 160705.3  |
+| TLL01708 | 315663   | 606582.31 |
+| TLL00130 | 188402   | 297594.56 |
+| TLL07094 | 88487    | 163898.9  |
+
+
+
+### 拉取各店最新销售日期
+
+```mysql
+-- 直接运行即可
+SELECT
+  stat_shop_id as 门店编码,
+  MAX(business_date) as 上次收银日期
+FROM
+  ads_dbs_trade_shop_di
+WHERE total_amount >0
+GROUP BY
+  stat_shop_id;
+```
+
+运行结果
+
+| 门店编码 | 上次收银日期 |
+| -------- | ------------ |
+| TLL02135 | 20240423     |
+| TLL03533 | 20240426     |
+| TLL04785 | 20240426     |
+| TLL04377 | 20230718     |
+| TLL04664 | 20240426     |
+| TLL02938 | 20240426     |
+| TLL03752 | 20230306     |
+| TLL04641 | 20231210     |
+| TLL04881 | 20230130     |
+| TLL05438 | 20240426     |
+
+### 拉取各店最新报货日期
+
+```mysql
+-- 直接运行即可
+SELECT
+  stat_shop_id as 门店编码,
+  MAX(business_date) as 上次报货日期
+FROM
+  ads_dbs_report_food_di
+WHERE
+  report_amount > 0
+GROUP BY
+  stat_shop_id;
+```
+
+运行结果
+
+| 门店编码 | 上次报货日期 |
+| -------- | ------------ |
+| ZYD00063 | 20240318     |
+| ZYD00041 | 20240426     |
+| ZYD00033 | 20230414     |
+| TLL05641 | 20240417     |
+| TLL05602 | 20240326     |
+| TLL05600 | 20240409     |
+| TLL05560 | 20240426     |
+| TLL05532 | 20240410     |
+| TLL05416 | 20240315     |
+| TLL05330 | 20240425     |
 
 
 
 ### 拉取各级经理的报货数据
 
 ```mysql
+-- 修改日期即可
 WITH variables AS (
     SELECT '20240101' AS start_date, '20240323' AS end_date
 )
@@ -531,8 +642,6 @@ SELECT
     region_manager_name AS '大区经理',
     prov_manager_name AS '省区经理',
     district_manager_name AS '区域经理',
-    ROUND(SUM(total_amount),2) AS '流水金额',
-    ROUND(SUM(pay_amount),2) AS '实收金额',
     ROUND(SUM(report_amount),2) AS '报货金额'
 FROM ads_dbs_report_food_di, variables
 WHERE business_date BETWEEN variables.start_date AND variables.end_date
@@ -545,25 +654,25 @@ GROUP BY
 
 运行结果
 
-| 时段                                                         | 大区经理 | 省区经理 | 区域经理 | 流水金额 | 实收金额 | 报货金额 |
-| ------------------------------------------------------------ | -------- | -------- | -------- | -------- | -------- | -------- |
-| 20240101~20240323                                            | 刘成龙   | 朱迎澳   | 康子龙   | 684.4    | 5.77     | 628.8    |
-| 20240101~20240323                                            | 刘向阳   | 刘波     | 刘波     | 49.82    | 361.36   | 19.2     |
-| 202024版桑葚包材套装报货2024版桑葚包材套装报货240101~20240323 | 胡冰雪   | 吴大印   | 刘远     | 418.25   | 200592.7 | 175.68   |
-| 20240101~20240323                                            | 邵陈龙   | 张良崎   | 王鹏翔   | 47.01    | 30.07    | 112.0    |
-| 20240101~20240323                                            | 赵磊     | 魏磊     | 刘春贤   | 1474.6   | 1405.93  | 224.0    |
-| 20240101~20240323                                            | 王枫涛   | 毛阳     | 徐博文   | 408.9    | 19.06    | 224.8    |
-| 20240101~20240323                                            | 王枫涛   | 韩善武   | 董薛彪   | 515.67   | 44.91    | 71.2     |
-| 20240101~20240323                                            | 赵磊     | 侯政权   | 赵哲     | 374.6    | 39.47    | 109.2    |
-| 20240101~20240323                                            | 王枫涛   | 邓斌     | 马亚军   | 7.25     | 36.73    | 597.6    |
+| 时段              | 大区经理 | 省区经理 | 区域经理 | 报货金额  |
+| ----------------- | -------- | -------- | -------- | --------- |
+| 20240401~20240426 | 刘成龙   | 朱迎澳   | 贺横     | 487580.8  |
+| 20240401~20240426 | 杨硕     | 裴俊杰   | 丁成龙   | 492261.44 |
+| 20240401~20240426 | 胡冰雪   | 刘昊彬   | 毛念秋   | 667283.2  |
+| 20240401~20240426 | 杨硕     | 裴俊杰   | 姜生耀   | 585450.4  |
+| 20240401~20240426 | 杨硕     | 庞孝笑   | 程博文   | 706845.92 |
+| 20240401~20240426 | 赵磊     | 周文君   | 王璐     | 652319.6  |
+| 20240401~20240426 | 王枫涛   | 付聪辉   | 陈迪     | 544315.28 |
+| 20240401~20240426 | 胡冰雪   | 吴大印   | 吴大印   | 259022.4  |
+| 20240401~20240426 | 王枫涛   | 刘紫阳   | 时允诺   | 681536.08 |
+| 20240401~20240426 | 刘成龙   | 李何     | 赵杰     | 723976.4  |
 
-
-
-### 查询柠檬橙子的报货周期
+### 拉取柠檬橙子的报货周期
 
 - 注：当前仅有柠檬橙子权限，无其它产品权限。
 
 ```mysql
+-- 直接运行即可
 WITH lemon_table AS (
   SELECT
     t1.stat_shop_id,
@@ -638,48 +747,6 @@ FROM
   JOIN orange_table o ON l.stat_shop_id = o.stat_shop_id;
 ```
 
-或者
-
-```mysql
-WITH fruit_table AS (
-  SELECT
-    stat_shop_id,
-    MAX(CASE WHEN lemon_report_cnt > 0 THEN business_date END) AS last_lemon_report_day,
-    MAX(CASE WHEN orange_report_cnt > 0 THEN business_date END) AS last_orange_report_day,
-    MAX(CASE WHEN lemon_report_cnt > 0 THEN lemon_report_cnt END) AS last_lemon_report_cnt,
-    MAX(CASE WHEN orange_report_cnt > 0 THEN orange_report_cnt END) AS last_orange_report_cnt
-  FROM
-    ads_dbs_report_food_di
-  GROUP BY
-    stat_shop_id
-)
-SELECT
-  stat_shop_id AS 门店编号,
-  last_lemon_report_day AS 上次柠檬报货时间,
-  last_lemon_report_cnt AS 上次柠檬报货数量,
-  last_orange_report_day AS 上次橙子报货时间,
-  last_orange_report_cnt AS 上次橙子报货数量,
-  DATEDIFF(CURDATE(), last_lemon_report_day) AS 上次柠檬报货距今,
-  CASE
-    WHEN DATEDIFF(CURDATE(), last_lemon_report_day) < 30 THEN '30日内有报货'
-    WHEN DATEDIFF(CURDATE(), last_lemon_report_day) < 60 THEN '60日内有报货'
-    WHEN DATEDIFF(CURDATE(), last_lemon_report_day) < 90 THEN '90日内有报货'
-    ELSE '90日内无报货'
-  END AS 柠檬报货周期,
-  DATEDIFF(CURDATE(), last_orange_report_day) AS 上次橙子报货距今,
-  CASE
-    WHEN DATEDIFF(CURDATE(), last_orange_report_day) < 30 THEN '30日内有报货'
-    WHEN DATEDIFF(CURDATE(), last_orange_report_day) < 60 THEN '60日内有报货'
-    WHEN DATEDIFF(CURDATE(), last_orange_report_day) < 90 THEN '90日内有报货'
-    ELSE '90日内无报货'
-  END AS 橙子报货周期
-FROM
-  fruit_table;
-
-```
-
-
-
 运行结果
 
 | 门店编号 | 上次柠檬报货时间 | 上次柠檬报货数量 | 上次橙子报货时间 | 上次橙子报货数量 | 上次柠檬报货距今 | 柠檬报货周期 | 上次橙子报货距今 | 橙子报货周期 |
@@ -695,9 +762,10 @@ FROM
 | TLL01918 | 20230807         | 3                | 20230807         | 2                | 261              | 90日内无报货 | 261              | 90日内无报货 |
 | TLL01039 | 20230807         | 4                | 20230712         | 4                | 261              | 90日内无报货 | 287              | 90日内无报货 |
 
-### 查询时间段内，各商品销量及营业额
+### 拉取时间段内，各商品销量及营业额
 
 ```mysql
+-- 修改日期即可
 SELECT
   item_name as 商品名称,
   sum(dp_item_count) as 销售数量,
@@ -710,8 +778,6 @@ where
 group by
   item_name
 ```
-
-
 
 运行结果
 
@@ -730,9 +796,10 @@ group by
 
 
 
-### 查询时间段内，各店的单日营业额
+### 拉取时间段内，各店的单日营业额
 
 ```mysql
+-- 修改日期即可
 WITH variables AS (
     SELECT '20240401' AS start_date, '20240426' AS end_date
 )
@@ -768,9 +835,10 @@ GROUP BY
 | 20240401~20240426 | TLL07499 | 20240413 | 2168.2   | 1877.74  |
 | 20240401~20240426 | TLL02938 | 20240413 | 1333.5   | 1074.61  |
 
-### 查询时间段内，各店营业额
+### 拉取时间段内，各店流水、实收
 
 ```mysql
+-- 修改日期即可
 WITH variables AS (
     SELECT '20240101' AS start_date, '20240323' AS end_date
 )
@@ -806,15 +874,15 @@ GROUP BY
 
 增加**营业天数**就比较麻烦
 
-#### 增加单日营业天数
+### 拉取时间段内，各店流水、实收、营业天数
 
 ```mysql
---临时表储存日期，修改日期即可
-WITH variables AS (
+-- 修改日期即可
+WITH time_period AS (
     SELECT '20240401' AS start_date, '20240427' AS end_date
 )
 SELECT
---    日期,
+    CONCAT(time_period.start_date, '~', time_period.end_date) AS 时段,
     门店编码,
     SUM(流水金额) AS 总流水金额,
     SUM(实收金额) AS 总实收金额,
@@ -830,82 +898,83 @@ FROM
             ELSE 0
         END AS 营业天数
     FROM
-        ads_dbs_trade_shop_di,variables
+        ads_dbs_trade_shop_di,time_period
     WHERE
---        stat_shop_id = 'TLL07742' AND 
-        business_date BETWEEN variables.start_date AND variables.end_date
+        business_date BETWEEN time_period.start_date AND time_period.end_date
     GROUP BY
         门店编码,
-        business_date) AS subquery
+        business_date) AS day_table,
+    time_period
 GROUP BY
---    日期,
+    时段,
     门店编码;
 ```
 
 
 
+| 时段              | 门店编码 | 总流水金额 | 总实收金额 | 总营业天数 |
+| ----------------- | -------- | ---------- | ---------- | ---------- |
+| 20240401~20240427 | TLL06506 | 32293.4    | 28590.1    | 27         |
+| 20240401~20240427 | TLL04644 | 26897.04   | 20725.56   | 27         |
+| 20240401~20240427 | TLL07350 | 81876      | 73637.87   | 26         |
+| 20240401~20240427 | TLL07213 | 34614.08   | 29555.21   | 26         |
+| 20240401~20240427 | TLL07449 | 24218      | 20767.49   | 26         |
+| 20240401~20240427 | TLL06271 | 27056.9    | 22723.46   | 25         |
+| 20240401~20240427 | TLL05438 | 16803.8    | 14341.17   | 26         |
+| 20240401~20240427 | TLL04202 | 66291.1    | 56733.79   | 27         |
+| 20240401~20240427 | TLL04939 | 0.00E+00   | 0.00E+00   | 0          |
+| 20240401~20240427 | TLL05504 | 44977.5    | 41269.79   | 27         |
 
-
-
-
-### 获取门店最新报货日期
+### 拉取时间段内，各店各渠道收银
 
 ```mysql
+WITH variables AS (
+    SELECT '20240101' AS start_date, '20240426' AS end_date
+)
 SELECT
-  stat_shop_id as 门店编码,
-  MAX(business_date) as 上次报货日期
+    CONCAT(variables.start_date, '~', variables.end_date) AS 时段,
+    stat_shop_id AS 门店编码,
+    platform AS 渠道,
+    SUM(total_amount) AS 流水金额
 FROM
-  ads_dbs_report_food_di
+    ads_dbs_trade_shop_di, variables
 WHERE
-  report_amount > 0
+    business_date BETWEEN variables.start_date AND variables.end_date
 GROUP BY
-  stat_shop_id;
+    时段,
+    stat_shop_id,
+    platform;
 ```
 
 运行结果
 
-| 门店编码 | 上次报货日期 |
-| -------- | ------------ |
-| ZYD00063 | 20240318     |
-| ZYD00041 | 20240426     |
-| ZYD00033 | 20230414     |
-| TLL05641 | 20240417     |
-| TLL05602 | 20240326     |
-| TLL05600 | 20240409     |
-| TLL05560 | 20240426     |
-| TLL05532 | 20240410     |
-| TLL05416 | 20240315     |
-| TLL05330 | 20240425     |
+| 时段              | 门店编码 | 渠道   | 流水金额  |
+| ----------------- | -------- | ------ | --------- |
+| 20240101~20240426 | TLL06223 | 美团   | 27425.8   |
+| 20240101~20240426 | TLL04998 | 美团   | 41        |
+| 20240101~20240426 | TLL07415 | 小程序 | 6192.5    |
+| 20240101~20240426 | TLL07415 | pos    | 94793.3   |
+| 20240101~20240426 | TLL07029 | 饿了么 | 11486.8   |
+| 20240101~20240426 | TLL03864 | pos    | 119806.62 |
+| 20240101~20240426 | TLL03864 | 饿了么 | 10468.4   |
+| 20240101~20240426 | TLL03680 | 美团   | 0.00E+00  |
+| 20240101~20240426 | TLL03680 | pos    | 0.00E+00  |
+| 20240101~20240426 | TLL02135 | pos    | 137327.2  |
 
+透视一下即可
 
-
-### 获取门店最新销售日期
-
-```mysql
-SELECT
-  stat_shop_id as 门店编码,
-  MAX(business_date) as 上次收银日期
-FROM
-  ads_dbs_trade_shop_di
-WHERE total_amount >0
-GROUP BY
-  stat_shop_id;
-```
-
-运行结果
-
-| 门店编码 | 上次收银日期 |
-| -------- | ------------ |
-| TLL02135 | 20240423     |
-| TLL03533 | 20240426     |
-| TLL04785 | 20240426     |
-| TLL04377 | 20230718     |
-| TLL04664 | 20240426     |
-| TLL02938 | 20240426     |
-| TLL03752 | 20230306     |
-| TLL04641 | 20231210     |
-| TLL04881 | 20230130     |
-| TLL05438 | 20240426     |
+| 门店编码 | pos       | 饿了么   | 美团      | 其它 | 小程序  | 总计      |
+| -------- | --------- | -------- | --------- | ---- | ------- | --------- |
+| TLL00001 | 153089    | 0        | 0         | 0    | 5469    | 158558    |
+| TLL00004 | 237490.6  | 0        | 0         | 0    | 9336.4  | 246827    |
+| TLL00006 | 270954.45 | 35590.2  | 135377.35 | 0    | 10723.2 | 452645.2  |
+| TLL00007 | 53208.4   | 0        | 34377     | 0    | 3287    | 90872.4   |
+| TLL00008 | 62936.8   | 9625.49  | 20738.29  | 0    | 2362    | 95662.58  |
+| TLL00009 | 291771.44 | 130      | 3741.01   | 0    | 10047   | 305689.45 |
+| TLL00010 | 118816.7  | 14058.44 | 16620.8   | 0    | 4561    | 154056.94 |
+| TLL00012 | 151120.06 | 12120.97 | 0         | 0    | 7589.5  | 170830.53 |
+| TLL00013 | 167357.6  | 0        | 8017      | 0    | 23877   | 199251.6  |
+| TLL00014 | 314589.9  | 0        | 0         | 0    | 45652.5 | 360242.4  |
 
 
 
@@ -919,7 +988,7 @@ GROUP BY
 
 # 自动化脚本
 
-自动化脚本主页为http://10.10.3.61:5000/ （内网），由python flask制作。使用脚本前可先查看“已生成的文件列表”，是否有小伙伴已经生成，可直接下载使用。
+自动化脚本主页为http://10.10.3.68:5000/ （内网），由python flask制作。使用脚本前可先查看“已生成的文件列表”，是否有小伙伴已经生成，可直接下载使用。
 
 ## 新品报货（销售）
 
