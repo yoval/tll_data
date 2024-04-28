@@ -130,7 +130,13 @@ SELECT VERSION();
 
 ### 表`ads_dbs_report_food_di`
 
-主要用于查询门店报货信息，能够查询**单店单日报货金额（已去除首批，未还原二八分账）**。查询不了详细订单、单品报货等内容。
+主要用于查询门店报货信息。
+
+**注：**
+
+- 中台数据非即时数据，数据截至前一天。
+- 收银数据，如流水金额（`total_amount`）为当日流水，`sum(total_amount)`写法是没有什么意义，是错误的，应当使用`ads_dbs_trade_shop_di`表计算一段时间的流水。
+- 此表未还原二八分账，报货金额需除以0.8。
 
 例：
 
@@ -148,7 +154,7 @@ GROUP BY
     月份
 ```
 
-查询门店TLL03855各月报货信息，表`ads_dbs_report_food_di`包含字段如下：
+表`ads_dbs_report_food_di`包含字段如下：
 
 | 字段                    | 类型    | 解释                    |
 | ----------------------- | ------- | ----------------------- |
@@ -181,7 +187,15 @@ GROUP BY
 
 ### 表`ads_dbs_trade_shop_di`
 
-主要用于查询单店单日各渠道销售情况，如：
+用于查询各店铺日销售
+
+**注：**
+
+- 中台数据非即时数据，数据截至前一天。
+- 受美团管家api限制，中台数据准确性通常在±0.1%左右，偶尔差距比较大。制作绩效等场合不应使用此表数据。
+- 为减少api所带来的影响，中台会**回刷向前10日数据**，今天查询和昨天查询会有些许不同是正常情况。
+
+例：
 
 ```mysql
 SELECT
@@ -199,7 +213,7 @@ GROUP BY
     月份
 ```
 
-查询门店TLL03855各月各平台的销售情况，表`ads_dbs_trade_shop_di`包含字段如下：
+表`ads_dbs_trade_shop_di`包含字段如下：
 
 | 字段                          | 类型    | 解释                                                  |
 | ----------------------------- | ------- | ----------------------------------------------------- |
@@ -276,25 +290,32 @@ GROUP BY
 
 ### 表`ads_dbs_trade_food_di`
 
-主要用于查询单店单日单品销售情况，如：
+主要用于查询单店单日单品销售情况
+
+- 中台数据非即时数据，数据截至前一天。
+- 受美团管家api限制，中台数据准确性通常在±0.1%左右，偶尔差距比较大。制作绩效等场合不应使用此表数据。
+- 为减少api所带来的影响，中台会**回刷向前10日数据**，今天查询和昨天查询会有些许不同是正常情况。
+- 因套餐拆分映射可能更新不及时，查询菜品时应多使用通配符，如`like '%清风茉白%'`。
+
+例：
 
 ```mysql
 SELECT
     LEFT(business_date, 6) AS 月份,
     stat_shop_name AS 门店名称,
     platform AS 平台,
-    SUM(total_amount) AS 流水金额
+    SUM(dp_item_count) AS 销量
 FROM
     ads_dbs_trade_food_di
 WHERE
-    stat_shop_id = 'TLL03855'
+    item_name LIKE '%碧玉桃花%'
 GROUP BY
+    月份,
     门店名称,
-    平台,
-    月份
+    平台;
 ```
 
-查询门店TLL03855各月各平台的销售情况，表`ads_dbs_trade_shop_di`包含字段如下：
+表`ads_dbs_trade_shop_di`包含字段如下：
 
 | 字段                             | 类型    | 解释                                                   |
 | -------------------------------- | ------- | ------------------------------------------------------ |
@@ -448,15 +469,35 @@ GROUP BY
 
 ```mysql
 SELECT
-  LEFT(business_date, 6) AS 月份,
-  stat_shop_id AS 门店编号,
-  SUM(total_amount) AS 流水金额,
-  SUM(report_amount) / 0.8 AS 报货金额
+    stat_shop_id AS 门店编号,
+    SUM(CASE WHEN source = 'ads_dbs_report_food_di' THEN report_amount / 0.8 ELSE 0 END) AS 报货金额,
+    SUM(CASE WHEN source = 'ads_dbs_trade_shop_di' THEN total_amount ELSE 0 END) AS 流水金额
 FROM
-  ads_dbs_report_food_di
+    (
+        SELECT
+            stat_shop_id,
+            report_amount,
+            NULL AS total_amount,
+            'ads_dbs_report_food_di' AS source
+        FROM
+            ads_dbs_report_food_di
+        WHERE
+            stat_shop_id = 'TLL06486'
+            AND business_date BETWEEN 20240101 AND 20240426
+        UNION ALL
+        SELECT
+            stat_shop_id,
+            NULL,
+            total_amount,
+            'ads_dbs_trade_shop_di' AS source
+        FROM
+            ads_dbs_trade_shop_di
+        WHERE
+            stat_shop_id = 'TLL06486'
+            AND business_date BETWEEN 20240101 AND 20240426
+    ) AS combined
 GROUP BY
-  门店编号,
-  月份
+    门店编号;
 ```
 
 
@@ -515,54 +556,6 @@ GROUP BY
 | 20240101~20240323                                            | 王枫涛   | 韩善武   | 董薛彪   | 515.67   | 44.91    | 71.2     |
 | 20240101~20240323                                            | 赵磊     | 侯政权   | 赵哲     | 374.6    | 39.47    | 109.2    |
 | 20240101~20240323                                            | 王枫涛   | 邓斌     | 马亚军   | 7.25     | 36.73    | 597.6    |
-
-### 查询柠檬香橙报货及当月流水
-
-```mysql
--- 查询每个门店的上次橙子报货时间、上次柠檬报货时间以及2024年4月的流水金额
-SELECT
-  t1.门店编号,
-  t1.上次橙子报货时间,
-  t1.上次柠檬报货时间,
-  t2.流水金额
-FROM
-  -- 子查询1：获取每个门店的上次橙子报货时间和上次柠檬报货时间
-  (SELECT
-    stat_shop_id AS 门店编号,
-    MAX(CASE WHEN orange_report_cnt > 0 THEN business_date END) AS 上次橙子报货时间,
-    MAX(CASE WHEN is_lemon_report > 0 THEN business_date END) AS 上次柠檬报货时间
-  FROM
-    ads_dbs_report_food_di
-  GROUP BY
-    stat_shop_id) AS t1
-JOIN
-  -- 子查询2：获取每个门店2024年4月的流水金额
-  (SELECT
-    stat_shop_id AS 门店编号,
-    LEFT(business_date, 6) AS 月份,
-    SUM(total_amount) AS 流水金额
-  FROM
-    ads_dbs_report_food_di
-  WHERE
-    LEFT(business_date, 6) = '202404'
-  GROUP BY
-    stat_shop_id, 月份) AS t2
-ON
-  t1.门店编号 = t2.门店编号;
-```
-
-运行结果
-
-| 门店编号 | 上次橙子报货时间 | 上次柠檬报货时间 | 流水金额 |
-| -------- | ---------------- | ---------------- | -------- |
-| TLL05553 | 20240412         | 20240412         | 2005     |
-| TLL05447 | 20240411         | 20240411         | 4201     |
-| TLL05384 | 20240415         | 20240415         | 612      |
-| TLL05282 | 20240417         | 20240330         | 2743.6   |
-| TLL05250 | 20240410         | 20240410         | 1143     |
-| TLL05210 | 20240415         | 20240415         | 3077.2   |
-| TLL05088 | 20240415         | 20240415         | 2590.4   |
-| TLL05072 | 20240402         | 20240402         | 4635.9   |
 
 
 
@@ -643,6 +636,46 @@ SELECT
 FROM
   lemon_table l
   JOIN orange_table o ON l.stat_shop_id = o.stat_shop_id;
+```
+
+或者
+
+```mysql
+WITH fruit_table AS (
+  SELECT
+    stat_shop_id,
+    MAX(CASE WHEN lemon_report_cnt > 0 THEN business_date END) AS last_lemon_report_day,
+    MAX(CASE WHEN orange_report_cnt > 0 THEN business_date END) AS last_orange_report_day,
+    MAX(CASE WHEN lemon_report_cnt > 0 THEN lemon_report_cnt END) AS last_lemon_report_cnt,
+    MAX(CASE WHEN orange_report_cnt > 0 THEN orange_report_cnt END) AS last_orange_report_cnt
+  FROM
+    ads_dbs_report_food_di
+  GROUP BY
+    stat_shop_id
+)
+SELECT
+  stat_shop_id AS 门店编号,
+  last_lemon_report_day AS 上次柠檬报货时间,
+  last_lemon_report_cnt AS 上次柠檬报货数量,
+  last_orange_report_day AS 上次橙子报货时间,
+  last_orange_report_cnt AS 上次橙子报货数量,
+  DATEDIFF(CURDATE(), last_lemon_report_day) AS 上次柠檬报货距今,
+  CASE
+    WHEN DATEDIFF(CURDATE(), last_lemon_report_day) < 30 THEN '30日内有报货'
+    WHEN DATEDIFF(CURDATE(), last_lemon_report_day) < 60 THEN '60日内有报货'
+    WHEN DATEDIFF(CURDATE(), last_lemon_report_day) < 90 THEN '90日内有报货'
+    ELSE '90日内无报货'
+  END AS 柠檬报货周期,
+  DATEDIFF(CURDATE(), last_orange_report_day) AS 上次橙子报货距今,
+  CASE
+    WHEN DATEDIFF(CURDATE(), last_orange_report_day) < 30 THEN '30日内有报货'
+    WHEN DATEDIFF(CURDATE(), last_orange_report_day) < 60 THEN '60日内有报货'
+    WHEN DATEDIFF(CURDATE(), last_orange_report_day) < 90 THEN '90日内有报货'
+    ELSE '90日内无报货'
+  END AS 橙子报货周期
+FROM
+  fruit_table;
+
 ```
 
 
@@ -770,6 +803,50 @@ GROUP BY
 | 20240101~20240323 | TLL06568 | 26082     | 26082     |
 | 20240101~20240323 | TLL07499 | 140604.8  | 113842.14 |
 | 20240101~20240323 | TLL05338 | 185029.1  | 164060.9  |
+
+增加**营业天数**就比较麻烦
+
+#### 增加单日营业天数
+
+```mysql
+--临时表储存日期，修改日期即可
+WITH variables AS (
+    SELECT '20240401' AS start_date, '20240427' AS end_date
+)
+SELECT
+--    日期,
+    门店编码,
+    SUM(流水金额) AS 总流水金额,
+    SUM(实收金额) AS 总实收金额,
+    SUM(营业天数) AS 总营业天数
+FROM
+    (SELECT
+        business_date AS 日期,
+        stat_shop_id AS 门店编码,
+        SUM(total_amount) AS 流水金额,
+        SUM(pay_amount) AS 实收金额,
+        CASE
+            WHEN SUM(total_amount) > 0 THEN 1
+            ELSE 0
+        END AS 营业天数
+    FROM
+        ads_dbs_trade_shop_di,variables
+    WHERE
+--        stat_shop_id = 'TLL07742' AND 
+        business_date BETWEEN variables.start_date AND variables.end_date
+    GROUP BY
+        门店编码,
+        business_date) AS subquery
+GROUP BY
+--    日期,
+    门店编码;
+```
+
+
+
+
+
+
 
 ### 获取门店最新报货日期
 
@@ -910,11 +987,13 @@ GROUP BY
 
 通过本期，计算同比期、环比期时段。注：**只可计算日期维度。**
 
+# 监控在线统计
+
+统计排除空合同
+
 # EXCEL
 
-## WPS智能条件格式
-
-`$E$2:$E$28，数值最小的5单元格个字体标红`
+## EXCEL 默认样式（用于WPS配置）
 
 
 
