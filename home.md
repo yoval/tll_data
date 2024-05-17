@@ -993,7 +993,7 @@ GROUP BY
 
 STEP1:
 
-```
+```sql
 WITH variables AS (
     SELECT '20230501' AS start_date, '20230517' AS end_date
 )
@@ -1002,7 +1002,10 @@ SELECT
     business_date as 日期,
     stat_shop_id AS 门店编码,
     platform AS 渠道,
-    SUM(total_amount) AS 流水金额
+    SUM(total_amount) AS 流水金额,
+    SUM(pay_amount) AS 实收金额,
+    SUM(order_count) AS 订单数
+
 FROM
     ads_dbs_trade_shop_di, variables
 WHERE
