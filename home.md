@@ -411,6 +411,81 @@ GROUP BY
 
 ## 需求实例
 
+### 拉取时间段内，各店单日营业额、营业天数
+
+```sql
+WITH time_period AS (
+    SELECT '20240401' AS start_date,
+           '20240427' AS end_date
+)
+SELECT business_date AS 日期,
+       stat_shop_id AS 门店编码,
+       SUM(total_amount) AS 流水金额,
+       SUM(pay_amount) AS 实收金额,
+       CASE
+           WHEN SUM(total_amount) > 0 THEN 1
+           ELSE 0
+       END AS 营业天数
+FROM ads_dbs_trade_shop_di,
+     time_period
+WHERE business_date BETWEEN time_period.start_date AND time_period.end_date
+GROUP BY 门店编码,
+         business_date
+
+```
+
+
+
+| 日期     | 门店编码 | 流水金额 | 实收金额 | 营业天数 |
+| -------- | -------- | -------- | -------- | -------- |
+| 20240405 | TLL04998 | 720      | 720      | 1        |
+| 20240405 | TLL02114 | 1632.5   | 1163.47  | 1        |
+| 20240405 | TLL04785 | 2946.8   | 2545.8   | 1        |
+| 20240405 | TLL05203 | 1406     | 1406     | 1        |
+| 20240405 | TLL06156 | 234      | 234      | 1        |
+| 20240405 | TLL04377 | 0        | 0        | 0        |
+| 20240405 | TLL07350 | 4262     | 3722.99  | 1        |
+| 20240405 | TLL04663 | 3473.5   | 3168.72  | 1        |
+| 20240405 | TLL05969 | 1208     | 1208     | 1        |
+| 20240405 | TLL07589 | 2081.2   | 1668.47  | 1        |
+
+
+
+### 拉取时间段内，各店单月营业额、营业天数
+
+```sql
+WITH time_period AS (
+    SELECT '20240401' AS start_date,
+           '20240801' AS end_date
+)
+SELECT CONCAT(time_period.start_date, '~', time_period.end_date) AS 时段,
+       LEFT(day_table.日期, 6) AS 月份,
+       day_table.门店编码,
+       SUM(day_table.流水金额) AS 总流水金额,
+       SUM(day_table.实收金额) AS 总实收金额,
+       SUM(day_table.营业天数) AS 总营业天数
+FROM (SELECT business_date AS 日期,
+             stat_shop_id AS 门店编码,
+             SUM(total_amount) AS 流水金额,
+             SUM(pay_amount) AS 实收金额,
+             CASE
+                 WHEN SUM(total_amount) > 0 THEN 1
+                 ELSE 0
+             END AS 营业天数
+      FROM ads_dbs_trade_shop_di,
+           time_period
+      WHERE business_date BETWEEN time_period.start_date AND time_period.end_date
+      GROUP BY 门店编码,
+               business_date) AS day_table,
+     time_period
+GROUP BY 时段,
+         月份,
+         门店编码;
+
+```
+
+
+
 ### 拉取单店各月营业额
 
 拉取`TLL02973`各月的流水金额、实收金额。
