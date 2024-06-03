@@ -1116,6 +1116,56 @@ GROUP BY
     platform;
 ```
 
+### 拉取时间段内，各店各月营业额、营业天数
+
+```sql
+WITH time_period AS (
+    SELECT '20240401' AS start_date,
+           '20240801' AS end_date
+)
+SELECT CONCAT(time_period.start_date, '~', time_period.end_date) AS 时段,
+       LEFT(day_table.日期, 6) AS 月份,
+       day_table.门店编码,
+       SUM(day_table.流水金额) AS 总流水金额,
+       SUM(day_table.实收金额) AS 总实收金额,
+       SUM(day_table.营业天数) AS 总营业天数
+FROM (SELECT business_date AS 日期,
+             stat_shop_id AS 门店编码,
+             SUM(total_amount) AS 流水金额,
+             SUM(pay_amount) AS 实收金额,
+             CASE
+                 WHEN SUM(total_amount) > 0 THEN 1
+                 ELSE 0
+             END AS 营业天数
+      FROM ads_dbs_trade_shop_di,
+           time_period
+      WHERE business_date BETWEEN time_period.start_date AND time_period.end_date
+      GROUP BY 门店编码,
+               business_date) AS day_table,
+     time_period
+GROUP BY 时段,
+         月份,
+         门店编码;
+
+```
+
+
+
+| 时段              | 月份   | 门店编码 | 总流水金额 | 总实收金额 | 总营业天数 |
+| ----------------- | ------ | -------- | ---------- | ---------- | ---------- |
+| 20240401~20240801 | 202404 | TLL04377 | 0          | 0          | 0          |
+| 20240401~20240801 | 202404 | TLL07350 | 90278.51   | 81455.78   | 30         |
+| 20240401~20240801 | 202404 | TLL06877 | 37416.01   | 35573.46   | 30         |
+| 20240401~20240801 | 202404 | TLL05338 | 52879.8    | 46362.39   | 30         |
+| 20240401~20240801 | 202404 | TLL04202 | 74172.6    | 63688.82   | 30         |
+| 20240401~20240801 | 202404 | TLL04338 | 55287.5    | 53347.62   | 25         |
+| 20240401~20240801 | 202404 | TLL06025 | 15090.7    | 13439.15   | 30         |
+| 20240401~20240801 | 202404 | TLL07017 | 45611.5    | 45385.61   | 28         |
+| 20240401~20240801 | 202404 | TLL05293 | 56675.2    | 52295.46   | 30         |
+| 20240401~20240801 | 202404 | TLL04608 | 101731.4   | 91850.44   | 30         |
+
+
+
 STEP2：
 
 进入：渠道销售数据格式化 脚本。
